@@ -20,7 +20,7 @@ library(ggplot2)
 ```
 
 
-#read in data
+### Read in data
 ```{r}
 defense <- read_excel('cyclonesFootball2019.xlsx', sheet='Defensive')
 offense <- read_excel('cyclonesFootball2019.xlsx', sheet='Offensive')
@@ -32,7 +32,7 @@ str(bio)
 
 
 
-#Clean Data  Part 1 Q1
+### Clean Data  Part 1 Q1
 ```{r}
 offense$Name = as.factor(offense$Name)
 offense$Opponent_Opponent = as.factor(offense$Opponent_Opponent)
@@ -43,7 +43,7 @@ bio$Name = as.factor(bio$Name)
 
 
 
-#Clean Data  Part 1 Q2
+### Clean Data  Part 1 Q2
 ```{r}
 defClean = defense %>% mutate_if(is.character, as.numeric)
 offClean = offense %>% mutate_if(is.character, as.numeric)
@@ -56,7 +56,7 @@ bioClean = bio %>% mutate_at("Weight", as.numeric)
 ```
 
 
-#Clean Data  Part 1 Q3
+### Clean Data  Part 1 Q3
 ```{r}
 bioClean = bioClean %>%
   separate('Height', c("Feet", "Inches"), 
@@ -67,14 +67,20 @@ bioClean$Height = bioClean$Feet * 12 + bioClean$Inches
 bioClean = bioClean %>% select(-Feet, -Inches)
          
 ```
-#Clean data Part 2 Q1
+
+```{r}
+str(defClean)
+str(offClean)
+str(bioClean)
+```
+### Part 2: Tidying (1) Q1
 ```{r error=TRUE}
 defCleanP2 = pivot_longer(defClean, cols = Tackles_Solo:Pass_PB, names_to = "Statistic", values_to = "Count", values_drop_na = TRUE)
 head(defClean2,5)
 ```
 
 
-#Clean data Part 2 Q2
+### Part 2: Tidying (1) Q2
 ```{r}
 ggplot(data=defCleanP2, aes(defCleanP2$Count)) + geom_histogram(binwidth = 1, color="black", fill="lightblue") +
   facet_wrap(~ defCleanP2$Statistic) + labs(title=" Defense Skills Plots",y="Frequency", x="Number of Occurrences") 
@@ -83,7 +89,7 @@ ggplot(data=defCleanP2, aes(defCleanP2$Count)) + geom_histogram(binwidth = 1, co
 Here the rare skills appear to be sacks, tackles assists and solo tackles because they have values that are not 0 but there are few values of the non zero kind. 
 
 
-#Clean data Part 2 Q3
+### Part 2: Tidying (1) Q3
 ```{r}
 defCleanP2Q3 = defCleanP2 %>%
   filter(Statistic == "Tackles_Solo", Opponent_Opponent %in% c("West Virginia","Kansas State")) %>% 
@@ -96,12 +102,68 @@ ggplot(defCleanP2Q3, aes(x=defCleanP2Q3$`West Virginia`, y=defCleanP2Q3$`Kansas 
 
 Here it seems as though, Kansas State has a better defense. 
 
+### Part 2: Tidying (2) Q1
+```{r}
+bioClean <- bioClean %>% separate('Hometown', c("City", "State"), sep = ',')
+print(bioClean[1:3, 6:7])
+```
 
+### Part 2: Tidying (2) Q2
+```{r}
+bioClean %>% group_by(State) %>% summarize(Players = n())
+```
 
+### Part 3: Joining Data Frames Q1
+```{r}
+left_join(offClean, bioClean, by='Name') %>% distinct(Name, City, State)
+```
 
+### Part 3: Joining Data Frames Q2
+```{r}
+left_join(offClean, bioClean, by='Name') %>% select(Name, Receiving_YDS, Weight) %>% ggplot(aes(x=Weight,y=Receiving_YDS))+geom_point()+labs(title='Weight vs Receiving Yards')
+```
 
+For the players with complete weight and receiving yard data, weight and receiving yards have a very weak correlation. This indicates that there is no clear relationship between the two variables.
 
+### Part 3: Joining Data Frames Q3
+```{r}
+offClean %>% group_by(Name) %>% summarize(avg_rushing_ATT=mean(Rushing_ATT),
+                                          avg_rushing_YDS = mean(Rushing_YDS),
+                                          avg_rushing_TD = mean(Rushing_TD),
+                                          avg_passing_YDS = mean(Passing_YDS),
+                                          avg_passing_TD = mean(Passing_TD),
+                                          avg_passing_INT = mean(Passing_INT))
+```
 
+Compared to other offensive players:
 
+The six variables used to answer this question (Rushing_ATT, Rushing_YDS, Rushing_TD, Passing_YDS, Passing_TD, Passing_INT) were the numerical variables that Brock Purdy had complete data for. The players being compared to Purdy are the players with complete data for these same variables.
 
+Purdy's average passing yards is much higher than any other player. This makes sense as he is the quarterback so he always starts with the ball and typically looks to pass. When he doesn't pass he rushes, and his average rushing yards is in line with or greater than that of the other offensive players with the exception of Breece Hall whose average rushing yards is over three times that of the next closest player. Similarly, Purdy's average pssing touchdowns and interceptions are higher than those of the other offensive players. This is  another result of him being quarterback and passing much more than any other player.
 
+### Part 3: Joining Data Frames Q4
+
+Question: Is there a relationship between defensive position and solo tackles? Defensive position and tackle assists? Defensive position and sacks?
+
+Answer:
+
+```{r fig.width=10}
+defBio <- inner_join(defClean, bioClean, by = 'Name') %>% group_by(Position) %>% summarize(total_solo_tackles = sum(Tackles_Solo), total_tackles_assist = sum(Tackles_ASST), total_sacks = sum(Tackles_Sack)) 
+defBio %>% ggplot(aes(x=Position,y=total_solo_tackles)) + geom_bar(stat="identity") + labs(title='Defensive Position vs Total Solo Tackles')
+```
+
+Defensive Backs, Linebackers, and Defensive Ends are the three positions with the most solo tackles.The other five positions have twenty or fewer solo tackles between players in those positions. Defensive backs have the most by far with nearly double that of linebackers, the position with the second most solo tackles. Linebackers in turn have nearly twice as many solo tackles as defensive ends. This is indicative of a strong relationship between defensive position and number of solo tackles.
+
+```{r fig.width=10}
+defBio %>% ggplot(aes(x=Position,y=total_tackles_assist)) + geom_bar(stat="identity") + labs(title= 'Defensive Position vs Total Tackle Assists')
+```
+
+Again, defensive backs, linebackers, and defensive ends have the most tackle assists. The difference in number of tackle assists between defensive backs and linebackers is much smaller than the difference in number of solo tackles from the previous part at about roughly 20 assists.
+
+```{r fig.width=10}
+defBio %>% ggplot(aes(x=Position,y=total_sacks)) + geom_bar(stat="identity") + labs(title='Defensive Position vs Total Sacks')
+```
+
+The bar plot above shows Defensive backs, linebackers, and defensive ends beiong the only positions with any sacks at all. What's different from the previous two plots is it's now linebackers with the greatest number of sacks with defensive ends not far behind. Defensive backs have the least number of total sacks of those three positions with roughly half as many as defensive ends.
+
+Overall, the three plots show that defensive backs, linebackers, and defensive ends are in the best position to get tackles and sacks. The remaining five positions (defensive line, offensive line, running back, tight end, wide receiver) get some tackles but no sacks.

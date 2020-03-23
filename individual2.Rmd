@@ -1,0 +1,89 @@
+---
+title: 'Individual #2'
+author: "McKenna Goffinet, mgoffinet"
+date: "3/22/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+defense <- read_excel('cyclonesFootball2019.xlsx', sheet='Defensive')
+offense <- read_excel('cyclonesFootball2019.xlsx', sheet='Offensive')
+bio <- read_excel('cyclonesFootball2019.xlsx', sheet='Biography')
+#Clean Data Q1
+offense$Name = as.factor(offense$Name)
+offense$Opponent_Opponent = as.factor(offense$Opponent_Opponent)
+defense$Name = as.factor(defense$Name)
+defense$Opponent_Opponent = as.factor(defense$Opponent_Opponent)
+bio$Name = as.factor(bio$Name)
+
+
+#Clean Data Q2
+defClean = defense %>% mutate_if(is.character, as.numeric)
+offClean = offense %>% mutate_if(is.character, as.numeric)
+bioClean = bio %>% mutate_at("Weight", as.numeric)
+str(offClean)
+
+
+#Clean Data Q3
+bioClean = bioClean %>%
+  separate('Height', c("Feet", "Inches"), 
+           sep = "-(?=[^ ]+$)", remove = FALSE) %>%
+  mutate_at("Feet", as.numeric) %>%
+  mutate_at("Inches", as.numeric)
+bioClean$Height = bioClean$Feet * 12 + bioClean$Inches
+bioClean = bioClean %>% select(-Feet, -Inches)
+```
+
+```{r}
+str(bioClean)
+#$separate
+bioClean <- bioClean %>% separate('Hometown', c("City", "State"), sep = ',')
+print(bioClean[1:3, 6:7])
+```
+
+```{r}
+bioClean %>% group_by(State) %>% summarize(count = n())
+```
+
+```{r}
+offBio <- left_join(offClean, bioClean, by='Name')
+offBio
+offBio %>% group_by(Name) %>% summarize(ct = n())
+offBio %>% distinct(Name, City, State)
+#By game
+offBio %>% select(Name, Receiving_YDS, Weight) %>% ggplot(aes(x=Weight,y=Receiving_YDS))+geom_point()
+```
+
+```{r}
+#By total receiving yards
+offBio %>% group_by(Name) %>% summarize(total_receiving_YDS = sum(Receiving_YDS), Weight=mean(Weight)) %>% select(Name, total_receiving_YDS, Weight) %>% ggplot(aes(x=Weight,y=total_receiving_YDS))+geom_point()
+```
+
+Weight and receiving yards have a very weak correlation indicating no clear relationship.
+
+```{r}
+offClean %>% group_by(Name) %>% summarize(avg_rushing_ATT=mean(Rushing_ATT),
+                                          avg_rushing_YDS = mean(Rushing_YDS),
+                                          avg_rushing_TD = mean(Rushing_TD),
+                                          avg_passing_YDS = mean(Passing_YDS),
+                                          avg_passing_TD = mean(Passing_TD),
+                                          avg_passing_INT = mean(Passing_INT))
+```
+
+In terms of other offensive players:
+
+Purdy's average passing yards is much higher than any other player. This makes sense as he is the quarterback so he always starts with the ball and typically looks to pass. When he doesn't pass he rushes, and his average rushing yards is in line with or greater than that of the other offensive players with the exception of Breece Hall whose average rushing yards is over three times that of the next closest player. Similarly, Purdy's average pssing touchdowns and interceptions are higher than those of the other offensive players. This is  another result of him being quarterback and passing much more than any other player.
+
+```{r fig.width=10}
+defBio <- inner_join(defClean, bioClean, by = 'Name') %>% group_by(Position) %>% summarize(total_solo_tackles = sum(Tackles_Solo), total_tackles_assist = sum(Tackles_ASST), total_sacks = sum(Tackles_Sack)) 
+defBio
+defBio %>% ggplot(aes(x=Position,y=total_solo_tackles)) + geom_bar(stat="identity") + labs(title='Defensive Position vs Total Solo Tackles')
+defBio %>% ggplot(aes(x=Position,y=total_tackles_assist)) + geom_bar(stat="identity") + labs(title= 'Defensive Position vs Total Tackle Assists')
+defBio %>% ggplot(aes(x=Position,y=total_sacks)) + geom_bar(stat="identity") + labs(title='Defensive Position vs Total Sacks')
+```
+
